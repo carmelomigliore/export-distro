@@ -88,24 +88,25 @@ public class AzureMQTTSender implements IotHubConnectionStateCallback {
 		} catch (URISyntaxException e) {
 			e.printStackTrace();
 		}
+		client.registerConnectionStateCallback(this,null);
 		logger.debug("Successfully created an IoT Hub client.");
 	}
 
 	public synchronized boolean sendMessage(byte[] messagePayload) {
 
 		try {
-			if(!connected) {
+			//if(!connected) {
 				client.open();
 				logger.debug("Opened connection to IoT Hub.");
-			}
+		//	}
 			Message msg = new Message(messagePayload);
 			msg.setExpiryTime(5000);
-			Object lockobj = new Object();
+			//Object lockobj = new Object();
 			EventCallback callback = new EventCallback();
-			client.sendEventAsync(msg, callback, lockobj);
-			synchronized (lockobj) {
+			client.sendEventAsync(msg, callback, null);
+			/*synchronized (lockobj) {
 				lockobj.wait();
-			}
+			}*/
 			return true;
 		} catch (Exception e) {
 			logger.error("Failure: " + e.toString());
