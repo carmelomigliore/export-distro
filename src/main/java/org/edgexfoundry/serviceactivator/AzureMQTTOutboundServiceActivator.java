@@ -26,8 +26,12 @@ import org.springframework.integration.annotation.MessageEndpoint;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.messaging.Message;
 
+import java.util.HashMap;
+
 @MessageEndpoint
 public class AzureMQTTOutboundServiceActivator {
+
+	private static HashMap<String,AzureMQTTSender> senders = new HashMap<>();
 
 	private final static org.edgexfoundry.support.logging.client.EdgeXLogger logger = org.edgexfoundry.support.logging.client.EdgeXLoggerFactory
 			.getEdgeXLogger(AzureMQTTOutboundServiceActivator.class);
@@ -39,9 +43,16 @@ public class AzureMQTTOutboundServiceActivator {
 			logger.debug("message arrived at Azure MQTT outbound sender: " + exportString.getEventId());
 			Addressable addressable = exportString.getRegistration().getAddressable();
 			if (addressable != null) {
-				// TODO - someday cache and reuse clients
-				AzureMQTTSender sender = new AzureMQTTSender(exportString.getRegistration().getAddressable(),
-						exportString.getDeviceId());
+				// TODO - someday cache and reuse clients - done by Carmelo
+				AzureMQTTSender sender = null;
+				synchronized (senders) {
+					sender = senders.get(exportString.getRegistration().getAddressable().getAddress() + exportString.getRegistration().getAddressable().getUser());
+					if (sender == null) {
+						sender = new AzureMQTTSender(exportString.getRegistration().getAddressable(),
+								exportString.getRegistration().getAddressable().getUser());
+						senders.put(exportString.getRegistration().getAddressable().getAddress() + exportString.getRegistration().getAddressable().getUser(), sender);
+					}
+				}
 				sender.sendMessage(exportString.getEventString().getBytes());
 				logger.info("message sent to Azure MQTT broker:  " + exportString.getRegistration().getAddressable()
 						+ " : " + exportString.getEventId());

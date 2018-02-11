@@ -129,10 +129,15 @@
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 		</dependency>
+		<!--<dependency>-->
+			<!--<groupId>com.microsoft.azure.iothub-java-client</groupId>-->
+			<!--<artifactId>iothub-java-device-client</artifactId>-->
+			<!--<version>${azure-client.version}</version>-->
+		<!--</dependency>-->
 		<dependency>
-			<groupId>com.microsoft.azure.iothub-java-client</groupId>
-			<artifactId>iothub-java-device-client</artifactId>
-			<version>${azure-client.version}</version>
+			<groupId>com.microsoft.azure.sdk.iot</groupId>
+			<artifactId>iot-device-client</artifactId>
+			<version>1.8.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.googlecode.json-simple</groupId>

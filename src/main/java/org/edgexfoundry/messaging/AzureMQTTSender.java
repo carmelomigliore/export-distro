@@ -19,15 +19,13 @@
  *******************************************************************************/
 package org.edgexfoundry.messaging;
 
+import com.microsoft.azure.sdk.iot.device.*;
 import org.edgexfoundry.domain.meta.Addressable;
 
-import com.microsoft.azure.iothub.DeviceClient;
-import com.microsoft.azure.iothub.IotHubClientProtocol;
-import com.microsoft.azure.iothub.IotHubEventCallback;
-import com.microsoft.azure.iothub.IotHubStatusCode;
-import com.microsoft.azure.iothub.Message;
+import java.io.IOException;
+import java.net.URISyntaxException;
 
-public class AzureMQTTSender {
+public class AzureMQTTSender implements IotHubConnectionStateCallback {
 
 	private final static String HOST_NAME = "HostName=";
 	private final static String DEVICE_ID = ";DeviceId=";
@@ -38,6 +36,26 @@ public class AzureMQTTSender {
 
 	private DeviceClient client;
 	private StringBuffer connectionString;
+	private boolean connected;
+
+	@Override
+	public void execute(IotHubConnectionState iotHubConnectionState, Object o) {
+		switch (iotHubConnectionState){
+			case CONNECTION_SUCCESS:
+				connected=true;
+				break;
+
+			case CONNECTION_DROP:
+			case SAS_TOKEN_EXPIRED:
+				try {
+					client.closeNow();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				logger.debug("Shutting down...");
+				connected = false;
+		}
+	}
 
 	protected static class EventCallback implements IotHubEventCallback {
 		public void execute(IotHubStatusCode status, Object context) {
@@ -61,18 +79,25 @@ public class AzureMQTTSender {
 			this.connectionString.append(deviceId);
 		this.connectionString.append(SHARED_ACCESS);
 		this.connectionString.append(addressable.getPassword());
-		logger.debug("Preparing to send to: " + this.connectionString);
-	}
-
-	public boolean sendMessage(byte[] messagePayload) {
 		logger.debug("Starting IoT Hub distro...");
 		logger.debug("Beginning IoT Hub setup.");
+		logger.debug("Preparing to send to: " + this.connectionString);
+		logger.debug("Azure connect with:  " + connectionString);
 		try {
-			logger.debug("Azure connect with:  " + connectionString);
-			client = new DeviceClient(connectionString.toString(), IotHubClientProtocol.MQTT);
-			logger.debug("Successfully created an IoT Hub client.");
-			client.open();
-			logger.debug("Opened connection to IoT Hub.");
+			client = new DeviceClient(connectionString.toString(), IotHubClientProtocol.AMQPS_WS);
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		}
+		logger.debug("Successfully created an IoT Hub client.");
+	}
+
+	public synchronized boolean sendMessage(byte[] messagePayload) {
+
+		try {
+			if(!connected) {
+				client.open();
+				logger.debug("Opened connection to IoT Hub.");
+			}
 			Message msg = new Message(messagePayload);
 			msg.setExpiryTime(5000);
 			Object lockobj = new Object();
@@ -81,8 +106,6 @@ public class AzureMQTTSender {
 			synchronized (lockobj) {
 				lockobj.wait();
 			}
-			client.close();
-			logger.debug("Shutting down...");
 			return true;
 		} catch (Exception e) {
 			logger.error("Failure: " + e.toString());
