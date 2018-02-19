@@ -26,6 +26,8 @@ import org.springframework.integration.annotation.MessageEndpoint;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.messaging.Message;
 
+import java.util.HashMap;
+
 /**
  * Send event data string to client's requested MQTT address.
  * 
@@ -41,6 +43,8 @@ public class MQTTOutboundServiceActivator {
 	private final static org.edgexfoundry.support.logging.client.EdgeXLogger logger = org.edgexfoundry.support.logging.client.EdgeXLoggerFactory
 			.getEdgeXLogger(MQTTOutboundServiceActivator.class);
 
+	private static HashMap <String, MQTTSender> senders = new HashMap<>();
+
 	@ServiceActivator(inputChannel = "outbound-mqtt", outputChannel = "mark-outboud")
 	public String mqttOutbound(Message<?> msg) {
 		try {
@@ -48,15 +52,18 @@ public class MQTTOutboundServiceActivator {
 			logger.debug("message arrived at MQTT outbound sender: " + exportString.getEventId());
 			
 			Addressable addressable = exportString.getRegistration().getAddressable();
+			// TODO - someday cache and reuse clients -- done by Carmelo
 			if (addressable != null) {
 				// add path or device id to MQTT topic in addressable
-				addPath(addressable, exportString.getDeviceId());
-				
-				// TODO - someday cache and reuse clients
-				MQTTSender sender = new MQTTSender(addressable);		
-				
+				//addPath(addressable, exportString.getDeviceId()); WHY? It's useless!
+				MQTTSender sender = senders.get(addressable.getBaseURL());
+				if(sender == null){
+					sender = new MQTTSender(addressable);
+					senders.put(addressable.getBaseURL(), sender);
+				}
+
 				sender.sendMessage(exportString.getEventString().getBytes());
-				sender.closeClient();
+				//sender.closeClient();
 				logger.info("message sent to MQTT broker:  " + exportString.getRegistration().getAddressable() + " : "
 						+ exportString.getEventId());
 				return exportString.getEventId();
